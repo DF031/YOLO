@@ -4,10 +4,9 @@ import numpy as np
 import os
 import logging
 from PIL import Image
-# from io import BytesIO # Not explicitly used after changes
+
 import easyocr 
 
-# 尝试从ultralytics的不同可能位置导入attempt_load_weights
 try:
     from ultralytics.nn.tasks import attempt_load_weights
 except ImportError:
