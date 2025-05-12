@@ -1,0 +1,24 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "智能车牌识别系统"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "智能车牌识别系统，可以识别图片中的车牌"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "车牌识别"
+    },
+    {
+      "name": "internet_permission_reason",
+      "value": "需要访问网络与服务器通信"
+    },
+    {
+      "name": "read_media_permission_reason",
+      "value": "需要访问媒体库选择图片"
+    }
+  ]
+}
