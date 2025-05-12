@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 
 # 创建Flask应用
 app = Flask(__name__)
-# app.config['SECRET_KEY'] = 'your-secret-key' # Flask-Sock不需要SECRET_KEY
 
 # 初始化Sock
 sock = Sock(app)
