@@ -5,7 +5,7 @@ import os
 import logging
 from PIL import Image
 # from io import BytesIO # Not explicitly used after changes
-import easyocr # <-- 新增 easyocr 导入
+import easyocr 
 
 # 尝试从ultralytics的不同可能位置导入attempt_load_weights
 try:
@@ -29,20 +29,19 @@ if not logger.handlers:
 
 # --- 配置常量 ---
 YOLO_IMG_SIZE = 640
-DETECT_MODEL_NAME = 'best11n.pt'  # <-- 修改为新的检测模型
+DETECT_MODEL_NAME = 'best11n.pt'  
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(CURRENT_DIR, 'weights')
 DETECT_MODEL_PATH = os.path.join(MODEL_DIR, DETECT_MODEL_NAME)
-# REC_MODEL_PATH = os.path.join(MODEL_DIR, REC_MODEL_NAME) # <-- 移除
 
-CONF_THRESHOLD = 0.25  # 可以根据新模型调整，Muhammad-Zeerak-Khan 项目中通常用 0.25
-IOU_THRESHOLD = 0.45   # 可以根据新模型调整，Muhammad-Zeerak-Khan 项目中通常用 0.45
+CONF_THRESHOLD = 0.25  
+IOU_THRESHOLD = 0.45  
 
 # --- 全局模型变量 ---
 DEVICE = None
 DETECT_MODEL = None
-OCR_READER = None      # <-- 新增 EasyOCR Reader
+OCR_READER = None     
 MODELS_LOADED = False
 
 # --- Helper Functions (保持不变或微调) ---
@@ -105,22 +104,10 @@ def restore_box(dets, r, left, top):
 def post_processing(prediction, conf_thresh, iou_thresh, r, left, top, device):
     prediction = prediction.permute(0, 2, 1).squeeze(0)
     num_coords = 4
-    
-    # IMPORTANT: Adjust class score extraction based on `license_plate_detector.pt` output
-    # Assuming the model is trained for a single class (license plate) and its score is at index 4 (0-indexed)
-    # Output format: [xc, yc, w, h, objectness_score, class0_score (plate)]
-    # Or if only one class: [xc, yc, w, h, score_plate]
-    # For Muhammad-Zeerak-Khan's model, it's usually [xc, yc, w, h, conf, class_idx]
-    # where class_idx for license plate is 0. So we check score at index 4 (conf) and class_idx at index 5.
-    
-    # Filter by confidence (score at index 4)
+
     xc = prediction[:, 4] > conf_thresh
     x = prediction[xc]
 
-    # Filter by class (class_idx at index 5, assuming plate is class 0)
-    # This step is crucial if the model detects multiple classes.
-    # If the model *only* detects license plates, this might be optional or class_idx is always 0.
-    # For safety, let's assume we need to check class_idx if it exists (i.e. output has 6+ columns)
     if x.shape[1] > 5: # Check if class_idx column exists
         plate_class_idx = 0  # Assuming license plate is class 0
         x = x[x[:, 5].int() == plate_class_idx]
@@ -133,8 +120,6 @@ def post_processing(prediction, conf_thresh, iou_thresh, r, left, top, device):
     
     score = x[:, 4:5] # Keep as a 2D tensor for torch.cat
     
-    # Reconstruct tensor for NMS: [x1,y1,x2,y2, score]
-    # Add class_idx if it was used, for consistency, though NMS itself might not use it directly if single class
     if x.shape[1] > 5:
         class_indices = x[:, 5:6].float() # Keep as a 2D tensor
         x_for_nms = torch.cat((boxes, score, class_indices), dim=1)
@@ -154,7 +139,6 @@ def pre_processing_yolo(img_cv2, img_size, device):
         img_tensor = img_tensor.unsqueeze(0)
     return img_tensor, r, left, top
 
-# --- Model Loading ---
 def load_all_models():
     global DEVICE, DETECT_MODEL, OCR_READER, MODELS_LOADED #PLATE_REC_MODEL removed
     if MODELS_LOADED:
@@ -177,9 +161,6 @@ def load_all_models():
         DETECT_MODEL.eval()
         logger.info(f"YOLOv8 detection model loaded from {DETECT_MODEL_PATH}")
 
-        # Initialize EasyOCR Reader
-        # Supported languages for Chinese plates: 'ch_sim' (Simplified Chinese), 'en' (English for letters/numbers)
-        # gpu=True if DEVICE.type == 'cuda' else False
         logger.info("Initializing EasyOCR Reader...")
         OCR_READER = easyocr.Reader(['ch_sim', 'en'], gpu=(DEVICE.type == 'cuda'))
         logger.info("EasyOCR Reader initialized.")
@@ -199,7 +180,6 @@ def load_all_models():
         MODELS_LOADED = False
     return MODELS_LOADED
 
-# --- Core Recognition Logic ---
 def _perform_recognition_internal(img_cv2):
     if not MODELS_LOADED:
         logger.error("Models are not loaded. Cannot perform recognition.")
@@ -219,7 +199,6 @@ def _perform_recognition_internal(img_cv2):
             predict = predict_raw 
     
     logger.info(f"Shape of tensor going into post_processing: {predict.shape}")
-    # outputs from post_processing: tensor of [x1,y1,x2,y2, score, class_idx (if present)]
     outputs = post_processing(predict, CONF_THRESHOLD, IOU_THRESHOLD, r, left, top, DEVICE)
     logger.info(f"Outputs from post_processing (detected plates before OCR): {outputs}")
 
@@ -228,7 +207,6 @@ def _perform_recognition_internal(img_cv2):
         output_numpy = output_item.cpu().numpy()
         rect = output_numpy[:4].astype(int).tolist()  # x1, y1, x2, y2
         score = float(output_numpy[4]) # Detection confidence
-        # class_idx = int(output_numpy[5]) if len(output_numpy) > 5 else 0 # Get class_idx if present
 
         h_img, w_img = img_ori.shape[:2]
         rect[0] = max(0, rect[0]); rect[1] = max(0, rect[1])
@@ -244,7 +222,6 @@ def _perform_recognition_internal(img_cv2):
             logger.warning(f"Skipping empty ROI for rect {rect}")
             continue
         
-        # Perform OCR using EasyOCR
         if OCR_READER:
             # Convert ROI to RGB for EasyOCR if it's BGR
             # roi_img_rgb = cv2.cvtColor(roi_img, cv2.COLOR_BGR2RGB) 
@@ -255,8 +232,6 @@ def _perform_recognition_internal(img_cv2):
             plate_text = ""
             highest_ocr_conf = 0
             if ocr_results:
-                # Concatenate results, potentially filter by confidence or clean up
-                # For simplicity, just join them. You might want more sophisticated logic.
                 for (_, text, ocr_conf) in ocr_results:
                     plate_text += text
                     if ocr_conf > highest_ocr_conf: # Get an idea of OCR confidence
@@ -265,10 +240,8 @@ def _perform_recognition_internal(img_cv2):
             else:
                  logger.warning(f"EasyOCR found no text in ROI {rect}")
 
-            # Color detection is not part of EasyOCR. Placeholder for now.
             plate_color = "未知" 
             color_conf = 0.0
-            # Plate type (single/double) is also not directly from this model/OCR.
             plate_type = 0 # Default to single layer
 
             result_dict = {
@@ -289,7 +262,6 @@ def _perform_recognition_internal(img_cv2):
 
     return result_list
 
-# --- Public API Function (mostly unchanged) ---
 def recognize_plate(pil_image: Image.Image):
     if not MODELS_LOADED:
         logger.error("recognize_plate called but models are not loaded. Attempting to load now.")
@@ -310,14 +282,12 @@ def recognize_plate(pil_image: Image.Image):
         logger.error(f"Error during plate recognition: {str(e)}", exc_info=True)
         return []
 
-# --- Initial Model Load on module import ---
 if not MODELS_LOADED:
     if not load_all_models():
         logger.critical("CRITICAL: Models failed to load on initial import. Plate recognition will not work.")
     else:
         logger.info("Models successfully loaded during initial import.")
 
-# --- Test block (optional, for direct script execution) ---
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     logger.info("Running plate_recognizer.py in test mode with new EasyOCR setup...")
@@ -326,10 +296,7 @@ if __name__ == '__main__':
         logger.error("Models did not load. Exiting test.")
         exit()
     
-    # Update test image path if necessary
     test_image_path = os.path.join(CURRENT_DIR, '..', 'backend', 'OIP.jpg') 
-    # Or use another test image appropriate for the new model
-    # test_image_path = os.path.join(CURRENT_DIR, '..', 'test_images', 'some_other_image.jpg')
 
     if test_image_path and os.path.exists(test_image_path):
         try:
@@ -338,11 +305,6 @@ if __name__ == '__main__':
             
             cpu_start_time = 0
             if DEVICE.type == 'cuda':
-                # CUDA timing (if you have events and want to use them)
-                # start_event = torch.cuda.Event(enable_timing=True)
-                # end_event = torch.cuda.Event(enable_timing=True)
-                # start_event.record()
-                # For simplicity with EasyOCR, just use time.perf_counter for GPU too
                 import time
                 cpu_start_time = time.perf_counter()
             else:
