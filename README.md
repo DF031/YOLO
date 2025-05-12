@@ -5,7 +5,7 @@
 ## 项目结构
 
 ```
-YOLO1/
+YOLO/
 ├── AppScope/                 # 应用级配置
 ├── backend/                  # Python Flask后端
 │   ├── app.py                # Flask应用入口
