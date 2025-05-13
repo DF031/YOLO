@@ -11,7 +11,7 @@ try:
     from ultralytics.nn.tasks import attempt_load_weights
 except ImportError:
     try:
-        from ultralytics.models.yolo.model import attempt_load_weights # 较新版本可能在这里
+        from ultralytics.models.yolo.model import attempt_load_weights
     except ImportError:
         logging.error("Failed to import attempt_load_weights from ultralytics. Please ensure ultralytics is installed and the import path is correct.")
         attempt_load_weights = None
